@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090c14">
+  <title>CueVerse Pro - 8-Ball & 9-Ball</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./styles/main.css">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+</head>
+<body>
+  <div id="app">
+    <section id="screen-menu" class="screen">
+      <div class="menu-shell">
+        <header class="menu-header">
+          <div class="brand-logo">
+            <span class="brand-orb">8</span>
+            <div>
+              <h1>CUEVERSE <span>PRO</span></h1>
+              <p>Deterministic WebRTC Pool</p>
+            </div>
+          </div>
+          <div class="wallet-bar">
+            <input id="profile-name-input" type="text" maxlength="18" value="Player 1">
+            <div class="coin-pill">🪙 <span id="menu-balance">1,000,000</span></div>
+            <button id="btn-refill-coins" class="btn-ghost" data-i18n="resetCoins">Пополнить до 1M</button>
+          </div>
+        </header>
+
+        <div class="menu-actions">
+          <button id="btn-open-create" class="btn-primary btn-large" data-i18n="createRoom">Создать комнату</button>
+          <button id="btn-open-join" class="btn-secondary btn-large" data-i18n="joinByCode">Войти по коду</button>
+          <button id="btn-open-local" class="btn-accent btn-large" data-i18n="localPlay">Играть вдвоём (1 устройство)</button>
+        </div>
+
+        <footer class="settings-strip">
+          <label>
+            <span>🌐</span>
+            <select id="setting-lang">
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label>
+            <span>✨</span>
+            <select id="setting-quality">
+              <option value="high">High (60 FPS)</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+          <label class="checkbox-label">
+            <input id="setting-sound" type="checkbox" checked>
+            <span>🔊 Sound</span>
+          </label>
+        </footer>
+      </div>
+    </section>
+
+    <section id="screen-create" class="screen hidden">
+      <div class="panel-box">
+        <h2 data-i18n="selectCity">Выберите клуб (город)</h2>
+        <div id="host-map-list" class="map-grid"></div>
+        <div class="lobby-code-box">
+          <span data-i18n="roomCode">Код комнаты</span>:
+          <strong id="host-room-code">...</strong>
+          <div id="host-guest-status" data-i18n="waitingGuest">Ожидание второго игрока...</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn-ghost" data-back-menu data-i18n="backBtn">Назад</button>
+          <button id="btn-host-start" class="btn-primary" disabled data-i18n="startMatch">Запуск партии</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-join" class="screen hidden">
+      <div class="panel-box">
+        <h2 data-i18n="enterCode">Введите 5-значный код комнаты</h2>
+        <div class="join-input-row">
+          <input id="join-code-input" type="text" maxlength="6" placeholder="AB3K9">
+          <button id="btn-connect-code" class="btn-secondary" data-i18n="connectBtn">Подключиться</button>
+        </div>
+        <div id="guest-lobby-details" class="lobby-code-box">---</div>
+        <div class="row-actions">
+          <button class="btn-ghost" data-back-menu data-i18n="backBtn">Назад</button>
+          <button id="btn-guest-ready" class="btn-primary" disabled data-i18n="readyBtn">Готов к игре</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-local" class="screen hidden">
+      <div class="panel-box">
+        <h2 data-i18n="localSetupTitle">Вдвоём на одном устройстве</h2>
+        <div class="local-inputs">
+          <input id="local-p1-input" type="text" value="Игрок 1" maxlength="16">
+          <input id="local-p2-input" type="text" value="Игрок 2" maxlength="16">
+        </div>
+        <div id="local-map-list" class="map-grid"></div>
+        <div class="local-options">
+          <label class="checkbox-label">
+            <input id="local-timer-check" type="checkbox" checked>
+            <span data-i18n="enableTimer">Таймер хода</span>
+          </label>
+          <label class="checkbox-label">
+            <input id="local-flip-check" type="checkbox">
+            <span data-i18n="flipTableP2">Развернуть стол на 180° для Игрока 2</span>
+          </label>
+        </div>
+        <div class="row-actions">
+          <button class="btn-ghost" data-back-menu data-i18n="backBtn">Назад</button>
+          <button id="btn-start-local" class="btn-accent" data-i18n="startLocalBtn">Начать матч</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-game" class="screen hidden">
+      <header class="hud-top">
+        <button id="btn-hud-menu" class="hud-icon-btn">☰</button>
+
+        <div id="hud-p1-card" class="player-hud-card active-turn">
+          <div class="avatar-box">P1</div>
+          <div class="player-meta">
+            <div class="player-name-row">
+              <span id="hud-p1-name">Player 1</span>
+              <small id="hud-p1-group"></small>
+            </div>
+            <div id="hud-p1-balls" class="ball-rack-slots"></div>
+            <div class="timer-track"><div id="hud-p1-timer" class="timer-fill"></div></div>
+          </div>
+        </div>
+
+        <div class="pot-center-badge">
+          <div class="pot-coins-icon">🏆</div>
+          <div id="hud-pot-value">2K</div>
+          <small id="hud-ping">Local</small>
+        </div>
+
+        <div id="hud-p2-card" class="player-hud-card">
+          <div class="player-meta right">
+            <div class="player-name-row">
+              <small id="hud-p2-group"></small>
+              <span id="hud-p2-name">Player 2</span>
+            </div>
+            <div id="hud-p2-balls" class="ball-rack-slots"></div>
+            <div class="timer-track"><div id="hud-p2-timer" class="timer-fill"></div></div>
+          </div>
+          <div class="avatar-box">P2</div>
+        </div>
+
+        <button id="hud-spin-btn" class="spin-mini-btn">
+          <span id="hud-spin-dot"></span>
+        </button>
+      </header>
+
+      <div class="table-stage">
+        <div id="fine-aim-wheel" class="fine-wheel" title="Fine Aim">
+          <div class="wheel-ticks"></div>
+        </div>
+
+        <div class="canvas-holder">
+          <canvas id="pool-canvas"></canvas>
+          <div id="game-toast" class="toast-banner hidden"></div>
+          <div id="turn-banner" class="turn-overlay hidden">
+            <span data-i18n="turnBanner">Ход переходит к:</span>
+            <strong id="turn-banner-name">Player 2</strong>
+          </div>
+        </div>
+
+        <div class="power-sidebar">
+          <div id="power-track" class="power-track">
+            <div id="power-fill" class="power-fill"></div>
+            <div id="power-cue-indicator" class="power-cue"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="spin-modal" class="modal-backdrop hidden">
+        <div class="spin-dialog">
+          <div id="spin-pad-circle" class="spin-pad-circle">
+            <div class="spin-crosshair-h"></div>
+            <div class="spin-crosshair-v"></div>
+            <div id="spin-pad-dot" class="spin-pad-dot"></div>
+          </div>
+          <button id="btn-close-spin" class="btn-primary">OK</button>
+        </div>
+      </div>
+
+      <div id="result-modal" class="modal-backdrop hidden">
+        <div class="result-dialog">
+          <h2 id="result-winner-name">Victory!</h2>
+          <p id="result-reason"></p>
+          <div class="row-actions">
+            <button id="btn-result-rematch" class="btn-primary" data-i18n="rematchBtn">Реванш</button>
+            <button id="btn-result-menu" class="btn-ghost" data-i18n="toMenuBtn">В меню</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="reconnect-overlay" class="modal-backdrop hidden">
+        <div class="result-dialog">
+          <h2>Connection Lost</h2>
+          <p>Waiting for opponent: <strong id="reconnect-timer">30</strong>s</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

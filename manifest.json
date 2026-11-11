@@ -1,0 +1,9 @@
+{
+  "name": "CueVerse Pro",
+  "short_name": "CueVerse",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#090c14",
+  "theme_color": "#090c14"
+}
