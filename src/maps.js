@@ -18,19 +18,19 @@ export const MAPS = [
       pocketRadiusScale: 1.04
     },
     theme: {
-      clothColor: '#9e1f1c',
-      clothAccent: '#6b1110',
-      cushionColor: '#7d1513',
+      clothColor: '#286653',
+      clothAccent: '#153e33',
+      cushionColor: '#1b4c3c',
       railColor: '#3d1e12',
       railSecondary: '#221009',
-      railTrim: '#d4af37',
+      railTrim: '#b7a789',
       emblemType: 'crown'
     }
   },
   {
     id: 'tokyo',
     name: { ru: 'Токио', en: 'Tokyo' },
-    subtitle: { ru: 'Неоновый квартал • Быстрое сукно', en: 'Neon District • Fast Cloth' },
+    subtitle: { ru: 'Тихий зал • Быстрое сукно', en: 'Quiet Room • Fast Cloth' },
     mode: '8ball',
     bet: 5000,
     turnTime: 45,
@@ -49,7 +49,7 @@ export const MAPS = [
       cushionColor: '#176b7a',
       railColor: '#131926',
       railSecondary: '#0a0e17',
-      railTrim: '#00f5d4',
+      railTrim: '#91aaa5',
       emblemType: 'torii'
     }
   },
@@ -75,7 +75,7 @@ export const MAPS = [
       cushionColor: '#734f1d',
       railColor: '#2e2012',
       railSecondary: '#1c130a',
-      railTrim: '#f59e0b',
+      railTrim: '#bca57e',
       emblemType: 'pyramid'
     }
   },
@@ -101,7 +101,7 @@ export const MAPS = [
       cushionColor: '#162030',
       railColor: '#261419',
       railSecondary: '#140a0d',
-      railTrim: '#f43f5e',
+      railTrim: '#a2a9b0',
       emblemType: 'star'
     }
   },
@@ -127,7 +127,7 @@ export const MAPS = [
       cushionColor: '#0f4223',
       railColor: '#1c1917',
       railSecondary: '#0c0a09',
-      railTrim: '#fbbf24',
+      railTrim: '#b5a17a',
       emblemType: 'spade'
     }
   }

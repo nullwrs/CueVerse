@@ -1,0 +1,8 @@
+{
+  "name": "cueverse",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/physics.test.mjs"
+  }
+}

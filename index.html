@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#090c14">
+  <meta name="theme-color" content="#101916">
   <title>CueVerse Pro - 8-Ball & 9-Ball</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="stylesheet" href="./styles/main.css">
@@ -17,17 +17,25 @@
           <div class="brand-logo">
             <span class="brand-orb">8</span>
             <div>
-              <h1>CUEVERSE <span>PRO</span></h1>
-              <p>Deterministic WebRTC Pool</p>
+              <h1>CUEVERSE <span>POOL CLUB</span></h1>
+              <p>8-BALL / 9-BALL</p>
             </div>
           </div>
           <div class="wallet-bar">
-            <input id="profile-name-input" type="text" maxlength="18" value="Player 1">
-            <div class="coin-pill">🪙 <span id="menu-balance">1,000,000</span></div>
+            <input aria-label="Имя игрока" id="profile-name-input" type="text" maxlength="18" value="Player 1">
+            <div class="coin-pill"><span class="coin-symbol" aria-hidden="true">◉</span> <span id="menu-balance">1,000,000</span></div>
             <button id="btn-refill-coins" class="btn-ghost" data-i18n="resetCoins">Пополнить до 1M</button>
           </div>
         </header>
 
+        <div class="menu-intro">
+          <div class="intro-copy">
+            <span class="eyebrow" data-i18n="clubLabel">ВАШ БИЛЬЯРДНЫЙ КЛУБ</span>
+            <h2 data-i18n="menuTitle">Всё решает<br>точный удар.</h2>
+            <p data-i18n="menuSubtitle">Выберите стол. Пригласите друга.<br>Сыграйте свою партию.</p>
+          </div>
+          <div class="still-life" aria-hidden="true"><div class="table-line"></div><div class="hero-ball ball-eight"><span>8</span></div><div class="hero-ball ball-cue"></div><div class="hero-stick"></div></div>
+        </div>
         <div class="menu-actions">
           <button id="btn-open-create" class="btn-primary btn-large" data-i18n="createRoom">Создать комнату</button>
           <button id="btn-open-join" class="btn-secondary btn-large" data-i18n="joinByCode">Войти по коду</button>
@@ -36,14 +44,14 @@
 
         <footer class="settings-strip">
           <label>
-            <span>🌐</span>
+            <span data-i18n="language">Язык</span>
             <select id="setting-lang">
               <option value="ru">Русский</option>
               <option value="en">English</option>
             </select>
           </label>
           <label>
-            <span>✨</span>
+            <span data-i18n="quality">Графика</span>
             <select id="setting-quality">
               <option value="high">High (60 FPS)</option>
               <option value="medium">Medium</option>
@@ -52,7 +60,7 @@
           </label>
           <label class="checkbox-label">
             <input id="setting-sound" type="checkbox" checked>
-            <span>🔊 Sound</span>
+            <span data-i18n="sound">Звук</span>
           </label>
         </footer>
       </div>
@@ -93,8 +101,8 @@
       <div class="panel-box">
         <h2 data-i18n="localSetupTitle">Вдвоём на одном устройстве</h2>
         <div class="local-inputs">
-          <input id="local-p1-input" type="text" value="Игрок 1" maxlength="16">
-          <input id="local-p2-input" type="text" value="Игрок 2" maxlength="16">
+          <input aria-label="Первый игрок" id="local-p1-input" type="text" value="Игрок 1" maxlength="16">
+          <input aria-label="Второй игрок" id="local-p2-input" type="text" value="Игрок 2" maxlength="16">
         </div>
         <div id="local-map-list" class="map-grid"></div>
         <div class="local-options">
@@ -116,7 +124,7 @@
 
     <section id="screen-game" class="screen hidden">
       <header class="hud-top">
-        <button id="btn-hud-menu" class="hud-icon-btn">☰</button>
+        <button id="btn-hud-menu" class="hud-icon-btn" aria-label="Меню">☰</button>
 
         <div id="hud-p1-card" class="player-hud-card active-turn">
           <div class="avatar-box">P1</div>
@@ -131,7 +139,7 @@
         </div>
 
         <div class="pot-center-badge">
-          <div class="pot-coins-icon">🏆</div>
+          <div class="pot-coins-icon"><span data-i18n="prize">Банк</span></div>
           <div id="hud-pot-value">2K</div>
           <small id="hud-ping">Local</small>
         </div>
@@ -148,7 +156,7 @@
           <div class="avatar-box">P2</div>
         </div>
 
-        <button id="hud-spin-btn" class="spin-mini-btn">
+        <button id="hud-spin-btn" class="spin-mini-btn" aria-label="Подкрутка">
           <span id="hud-spin-dot"></span>
         </button>
       </header>
@@ -175,16 +183,12 @@
         </div>
       </div>
 
-        <div class="power-sidebar">
-          <div id="power-track" class="power-track">
-            <div id="power-fill" class="power-fill"></div>
-            <div id="power-cue-indicator" class="power-cue"></div>
-          </div>
-        </div>
-      </div>
+      <footer class="game-help"><span data-i18n="aimHelp">Прицел — движение по столу</span><span data-i18n="powerHelp">Удар — потяните шкалу слева и отпустите</span><span data-i18n="spinHelp">Подкрутка — белый шар справа</span></footer>
 
       <div id="spin-modal" class="modal-backdrop hidden">
         <div class="spin-dialog">
+          <h2 data-i18n="spinTitle">Точка удара</h2>
+          <p data-i18n="spinHint">Выше центра — накат, ниже — оттяжка</p>
           <div id="spin-pad-circle" class="spin-pad-circle">
             <div class="spin-crosshair-h"></div>
             <div class="spin-crosshair-v"></div>

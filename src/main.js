@@ -336,9 +336,11 @@ class CueVerseApp {
     const isLocal = containerId === 'local-map-list';
 
     MAPS.forEach(m => {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.setAttribute('aria-pressed', String(this.selectedMap.id === m.id));
       card.className = `map-card ${this.selectedMap.id === m.id ? 'active' : ''}`;
-      card.style.borderColor = m.theme.railTrim;
+      card.style.setProperty('--cloth', m.theme.clothColor);
       card.innerHTML = `
         <div class="map-card-title">${m.name[this.lang]}</div>
         <div class="map-card-sub">${m.subtitle[this.lang]}</div>
@@ -656,10 +658,6 @@ class CueVerseApp {
         this.sound.playRailHit(ev.speed);
       } else if (ev.type === 'pocket') {
         this.sound.playPocket();
-        const pk = this.world.pockets[ev.pocketId];
-        if (pk) {
-          this.renderer.spawnPocketParticles(pk.x, pk.y, '#00f5a0');
-        }
       }
     }
     this.world.eventCount = 0;

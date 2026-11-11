@@ -22,7 +22,7 @@ const BALL_COLORS = [
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.ctx = canvas.getContext('2d');
     this.tableCache = document.createElement('canvas');
     this.tableCtx = this.tableCache.getContext('2d');
 
@@ -84,29 +84,6 @@ export class Renderer {
     return { x: tx, y: ty };
   }
 
-  spawnPocketParticles(x, y, color) {
-    if (this.quality === 'low') return;
-    const count = this.quality === 'high' ? 14 : 7;
-    let spawned = 0;
-    for (let i = 0; i < this.particles.length && spawned < count; i++) {
-      const p = this.particles[i];
-      if (!p.active) {
-        const ang = (Math.PI * 2 * spawned) / count;
-        const spd = 45 + (spawned % 3) * 28;
-        p.active = true;
-        p.x = x;
-        p.y = y;
-        p.vx = Math.cos(ang) * spd;
-        p.vy = Math.sin(ang) * spd;
-        p.life = 0;
-        p.maxLife = 0.42;
-        p.color = color;
-        p.r = 3.2;
-        spawned++;
-      }
-    }
-  }
-
   bakeTable(mapConfig, pockets) {
     this.currentMap = mapConfig;
     this.lastPockets = pockets;
@@ -139,7 +116,7 @@ export class Renderer {
     ctx.fill();
     ctx.restore();
 
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 1.5;
     ctx.strokeStyle = th.railTrim;
     this.roundRect(ctx, frameX + 4, frameY + 4, frameW - 8, frameH - 8, 30);
     ctx.stroke();
@@ -245,8 +222,8 @@ export class Renderer {
     ctx.translate(cx, cy);
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.globalAlpha = 0.11;
-    ctx.lineWidth = 3.5;
+    ctx.globalAlpha = 0.035;
+    ctx.lineWidth = 1.5;
 
     ctx.beginPath();
     ctx.arc(0, 0, 92, 0, Math.PI * 2);
@@ -324,8 +301,7 @@ export class Renderer {
 
   render(world, rules, inputState, dt) {
     const ctx = this.ctx;
-    ctx.fillStyle = '#090c14';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     ctx.save();
     ctx.translate(this.offsetX, this.offsetY);

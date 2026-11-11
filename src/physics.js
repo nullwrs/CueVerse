@@ -3,7 +3,8 @@ export const TABLE_H = 500;
 export const BALL_R = 14;
 export const FIXED_DT = 1 / 240;
 export const MAX_SPEED = 1600;
-const GRAVITY = 980;
+// Table units use a standard 57.15 mm pool ball.
+const GRAVITY = 9.81 * (BALL_R * 2 / 0.05715);
 const STOP_EPS = 2.0;
 const SPIN_EPS = 0.2;
 
@@ -277,25 +278,26 @@ export class PhysicsWorld {
     const cue = this.balls[0];
     if (!cue.active) return;
     const clampedPower = Math.max(0.03, Math.min(1, power));
-    const speed = Math.pow(clampedPower, 0.92) * MAX_SPEED;
+    const speed = Math.pow(clampedPower, 1.65) * MAX_SPEED;
     const dirX = Math.cos(angle);
     const dirY = Math.sin(angle);
 
     cue.vx = dirX * speed;
     cue.vy = dirY * speed;
-    cue.slidingTime = 0.22;
-
-    cue.topSpin = spinY * speed * 0.85;
-    cue.wz = spinX * (speed / BALL_R) * 1.1;
-    cue.wx = -cue.vy / BALL_R;
-    cue.wy = cue.vx / BALL_R;
+    // A center strike starts sliding; cloth friction creates natural roll.
+    const spinLength = Math.max(1, Math.hypot(spinX, spinY));
+    const follow = spinY / spinLength * 1.25;
+    cue.topSpin = 0;
+    cue.wz = spinX / spinLength * speed / BALL_R * 0.8;
+    cue.wx = -dirY * speed / BALL_R * follow;
+    cue.wy = dirX * speed / BALL_R * follow;
   }
 
   areBallsMoving() {
     for (let i = 0; i < 16; i++) {
       const b = this.balls[i];
       if (!b.active) continue;
-      if (Math.hypot(b.vx, b.vy) > STOP_EPS * 0.5 || Math.abs(b.wz) > SPIN_EPS) {
+      if (Math.hypot(b.vx, b.vy) > STOP_EPS * 0.5 || Math.hypot(b.wx, b.wy) * BALL_R > STOP_EPS) {
         return true;
       }
     }
@@ -356,38 +358,33 @@ export class PhysicsWorld {
       const b = this.balls[i];
       if (!b.active) continue;
 
-      const speed = Math.hypot(b.vx, b.vy);
-      if (speed > STOP_EPS) {
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
 
-        const activeFriction = b.slidingTime > 0 ? muS * 0.45 : muR;
-        if (b.slidingTime > 0) {
-          b.slidingTime = Math.max(0, b.slidingTime - dt);
-        }
-
-        const decel = activeFriction * GRAVITY * dt;
-        const newSpeed = Math.max(0, speed - decel);
-        const ratio = newSpeed / speed;
+      // Contact velocity at the cloth; I = 2/5 m r² for a solid sphere.
+      const slipX = b.vx - BALL_R * b.wy;
+      const slipY = b.vy + BALL_R * b.wx;
+      const slip = Math.hypot(slipX, slipY);
+      if (slip > 1e-6) {
+        // Cap friction at the impulse that reaches rolling, avoiding overshoot.
+        const impulse = Math.min(muS * GRAVITY * dt, slip / 3.5);
+        const jx = -slipX / slip * impulse;
+        const jy = -slipY / slip * impulse;
+        b.vx += jx;
+        b.vy += jy;
+        b.wx += 2.5 * jy / BALL_R;
+        b.wy -= 2.5 * jx / BALL_R;
+      }
+      if (slip <= 3.5 * muS * GRAVITY * dt + 1e-6) {
+        const speed = Math.hypot(b.vx, b.vy);
+        const nextSpeed = Math.max(0, speed - muR * GRAVITY * dt);
+        const ratio = speed > STOP_EPS ? nextSpeed / speed : 0;
         b.vx *= ratio;
         b.vy *= ratio;
-
         b.wx = -b.vy / BALL_R;
         b.wy = b.vx / BALL_R;
-        rotateMat3(b.rot, b.wx, b.wy, b.wz, dt);
-      } else {
-        b.vx = 0;
-        b.vy = 0;
-        b.wx = 0;
-        b.wy = 0;
-        b.slidingTime = 0;
       }
-
-      if (Math.abs(b.topSpin) > 1) {
-        b.topSpin *= Math.max(0, 1 - 1.2 * dt);
-      } else {
-        b.topSpin = 0;
-      }
+      rotateMat3(b.rot, b.wx, b.wy, b.wz, dt);
 
       if (Math.abs(b.wz) > SPIN_EPS) {
         const sign = b.wz > 0 ? 1 : -1;
@@ -441,25 +438,17 @@ export class PhysicsWorld {
 
             const tx = -ny;
             const ty = nx;
-            const relTan = rvx * tx + rvy * ty + BALL_R * (a.wz + b.wz) * 0.4;
-            const jTan = Math.max(-throwMu * jNorm, Math.min(throwMu * jNorm, -0.12 * relTan));
+            const relTan = rvx * tx + rvy * ty + BALL_R * (a.wz + b.wz);
+            const jTan = Math.max(-throwMu * jNorm, Math.min(throwMu * jNorm, -relTan / 7));
 
             a.vx += jTan * tx;
             a.vy += jTan * ty;
             b.vx -= jTan * tx;
             b.vy -= jTan * ty;
 
-            if (a.id === 0 && Math.abs(a.topSpin) > 1) {
-              const spinTransfer = a.topSpin * 0.58;
-              a.vx += nx * spinTransfer;
-              a.vy += ny * spinTransfer;
-              a.topSpin *= 0.2;
-            }
-
-            a.slidingTime = 0.12;
-            b.slidingTime = 0.12;
-            a.wz *= 0.6;
-            b.wz *= 0.6;
+            // Equal tangential impulses also change both contact spins.
+            a.wz += 2.5 * jTan / BALL_R;
+            b.wz += 2.5 * jTan / BALL_R;
 
             this.collisionCount++;
             this.pushEvent('ball', a.id, b.id, velAlongNormal);
@@ -512,16 +501,13 @@ export class PhysicsWorld {
             const ty = nx;
             const vt = b.vx * tx + b.vy * ty;
 
-            const newVn = -vn * eRail;
-            const spinEffect = b.wz * BALL_R * 0.18;
-            const newVt = vt * 0.9 + spinEffect;
-
-            b.vx = nx * newVn + tx * newVt;
-            b.vy = ny * newVn + ty * newVt;
-            b.wz *= 0.55;
-            b.topSpin *= 0.35;
-            b.wx = -b.vy / BALL_R;
-            b.wy = b.vx / BALL_R;
+            const normalImpulse = -(1 + eRail) * vn;
+            const slip = vt - b.wz * BALL_R;
+            const tangentImpulse = Math.max(-0.14 * normalImpulse,
+              Math.min(0.14 * normalImpulse, -slip / 3.5));
+            b.vx += nx * normalImpulse + tx * tangentImpulse;
+            b.vy += ny * normalImpulse + ty * tangentImpulse;
+            b.wz -= 2.5 * tangentImpulse / BALL_R;
 
             this.collisionCount++;
             this.pushEvent('rail', b.id, s, Math.abs(vn));

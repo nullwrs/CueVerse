@@ -1,5 +1,10 @@
 export const I18N = {
   ru: {
+    language: 'Язык', quality: 'Графика', sound: 'Звук', prize: 'Банк',
+    clubLabel: 'ВАШ БИЛЬЯРДНЫЙ КЛУБ', menuTitle: 'Всё решает точный удар.',
+    menuSubtitle: 'Выберите стол. Пригласите друга. Сыграйте свою партию.',
+    aimHelp: 'Прицел — движение по столу', powerHelp: 'Удар — потяните шкалу слева и отпустите',
+    spinHelp: 'Подкрутка — белый шар справа', spinTitle: 'Точка удара', spinHint: 'Выше центра — накат, ниже — оттяжка',
     createRoom: 'Создать комнату',
     joinByCode: 'Войти по коду',
     localPlay: 'Играть вдвоём (1 устройство)',
@@ -44,6 +49,11 @@ export const I18N = {
     err_room_full: 'Комната уже заполнена.'
   },
   en: {
+    language: 'Language', quality: 'Graphics', sound: 'Sound', prize: 'Pot',
+    clubLabel: 'YOUR POOL CLUB', menuTitle: 'Make every shot count.',
+    menuSubtitle: 'Choose a table. Invite a friend. Play your game.',
+    aimHelp: 'Aim — move across the table', powerHelp: 'Shoot — pull the left meter and release',
+    spinHelp: 'Spin — cue ball at the top right', spinTitle: 'Contact point', spinHint: 'Above center to follow, below to draw',
     createRoom: 'Create Room',
     joinByCode: 'Join by Code',
     localPlay: 'Pass & Play (1 Device)',
