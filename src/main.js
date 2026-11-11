@@ -38,6 +38,11 @@ class CueVerseApp {
       this.rules,
       {
         onFireShot: shot => this.handleLocalShotInput(shot),
+        onAimChanged: aimData => {
+          if (this.gameMode === 'online' && this.matchActive && !this.simulatingShot) {
+            this.net.sendAimSync(aimData);
+          }
+        },
         onPocketCalled: pkId => {
           if (this.gameMode === 'online') {
             this.net.send({ type: 'POCKET_CALL', pocketId: pkId });
@@ -77,6 +82,23 @@ class CueVerseApp {
       },
       onMatchStart: payload => {
         this.startOnlineMatchClient(payload);
+      },
+      onRemoteAim: aim => {
+        if (!this.matchActive || this.simulatingShot || this.input.canShoot) return;
+        this.input.aimAngle = aim.angle;
+        this.input.power = aim.power;
+        this.input.spinX = aim.spinX;
+        this.input.spinY = aim.spinY;
+        this.rules.calledPocket = aim.calledPocket;
+        if (this.rules.ballInHand) {
+          const cue = this.world.balls[0];
+          cue.x = aim.cueX;
+          cue.y = aim.cueY;
+          cue.prevX = aim.cueX;
+          cue.prevY = aim.cueY;
+        }
+        this.input.updatePowerUI();
+        this.input.updateSpinUI();
       },
       onClientShotRequest: shot => {
         if (this.rules.currentTurn !== 1 || this.simulatingShot) return;
@@ -143,6 +165,35 @@ class CueVerseApp {
     return I18N[this.lang][key] || key;
   }
 
+  resetGameAndSettingsToDefault() {
+    this.input.resetAllDefaults();
+    this.renderer.flipped = false;
+    this.renderer.debugMode = false;
+    this.localFlipEnabled = false;
+    this.timerEnabled = true;
+
+    const flipCheck = document.getElementById('local-flip-check');
+    if (flipCheck) flipCheck.checked = false;
+
+    const timerCheck = document.getElementById('local-timer-check');
+    if (timerCheck) timerCheck.checked = true;
+
+    const spinModal = document.getElementById('spin-modal');
+    if (spinModal) spinModal.classList.add('hidden');
+
+    const qualitySelect = document.getElementById('setting-quality');
+    if (qualitySelect) {
+      qualitySelect.value = 'high';
+      this.renderer.setQuality('high');
+    }
+
+    const soundCheck = document.getElementById('setting-sound');
+    if (soundCheck) {
+      soundCheck.checked = true;
+      this.sound.setEnabled(true);
+    }
+  }
+
   initUI() {
     window.addEventListener('resize', () => this.renderer.resize());
     window.addEventListener('keydown', e => {
@@ -191,6 +242,7 @@ class CueVerseApp {
       btn.addEventListener('click', () => {
         this.net.cleanup();
         this.matchActive = false;
+        this.resetGameAndSettingsToDefault();
         this.showScreen('screen-menu');
       });
     });
@@ -225,6 +277,7 @@ class CueVerseApp {
     });
 
     document.getElementById('hud-spin-btn').addEventListener('click', () => {
+      if (!this.input.canShoot) return;
       document.getElementById('spin-modal').classList.toggle('hidden');
     });
 
@@ -235,6 +288,7 @@ class CueVerseApp {
     document.getElementById('btn-hud-menu').addEventListener('click', () => {
       this.net.cleanup();
       this.matchActive = false;
+      this.resetGameAndSettingsToDefault();
       this.showScreen('screen-menu');
     });
 
@@ -242,11 +296,13 @@ class CueVerseApp {
       document.getElementById('result-modal').classList.add('hidden');
       this.net.cleanup();
       this.matchActive = false;
+      this.resetGameAndSettingsToDefault();
       this.showScreen('screen-menu');
     });
 
     document.getElementById('btn-result-rematch').addEventListener('click', () => {
       document.getElementById('result-modal').classList.add('hidden');
+      this.resetGameAndSettingsToDefault();
       if (this.gameMode === 'local') {
         this.startLocalMatch();
       } else if (this.net.isHost) {
@@ -364,6 +420,7 @@ class CueVerseApp {
   }
 
   setupMatchCommon(seed, isLocal) {
+    this.input.resetAllDefaults();
     this.showScreen('screen-game');
     this.world.configure(this.selectedMap.physics);
     this.renderer.bakeTable(this.selectedMap, this.world.pockets);
@@ -375,6 +432,7 @@ class CueVerseApp {
     this.matchActive = true;
     this.simulatingShot = false;
     this.renderer.flipped = false;
+    this.input.showAim = true;
 
     document.getElementById('hud-p1-name').textContent = this.players[0];
     document.getElementById('hud-p2-name').textContent = this.players[1];
@@ -409,6 +467,8 @@ class CueVerseApp {
   executeDeterministicShot(shot) {
     this.simulatingShot = true;
     this.input.canShoot = false;
+    this.input.power = 0;
+    this.input.updatePowerUI();
     this.world.rng.setSeed(shot.seed || 12345);
 
     if (this.rules.ballInHand) {
@@ -460,9 +520,13 @@ class CueVerseApp {
   prepareNextTurn(foulCode = '', turnChanged = false) {
     this.turnTimeLeft = this.turnDuration;
     this.input.resetForTurn();
+    if (turnChanged) {
+      this.input.aimAngle = 0;
+    }
 
     const isMyTurn = this.gameMode === 'local' || this.rules.currentTurn === this.myPlayerIndex;
     this.input.canShoot = isMyTurn;
+    this.input.showAim = true;
 
     if (this.gameMode === 'local') {
       this.renderer.flipped = this.localFlipEnabled && this.rules.currentTurn === 1;
@@ -536,6 +600,8 @@ class CueVerseApp {
   finishMatch() {
     this.matchActive = false;
     this.input.canShoot = false;
+    this.input.showAim = false;
+    this.resetGameAndSettingsToDefault();
     this.sound.playWin();
 
     const winnerIdx = this.rules.winner;
@@ -578,7 +644,7 @@ class CueVerseApp {
     }, 2600);
   }
 
-   drainWorldAudioAndEvents() {
+  drainWorldAudioAndEvents() {
     if (this.world.eventCount === 0) return;
     this.rules.processPhysicsEvents(this.world.eventQueue, this.world.eventCount);
 

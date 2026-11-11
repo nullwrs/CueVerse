@@ -2,10 +2,10 @@ export const TABLE_W = 1000;
 export const TABLE_H = 500;
 export const BALL_R = 14;
 export const FIXED_DT = 1 / 240;
-export const MAX_SPEED = 1650;
+export const MAX_SPEED = 1600;
 const GRAVITY = 980;
-const STOP_EPS = 1.8;
-const SPIN_EPS = 0.25;
+const STOP_EPS = 2.0;
+const SPIN_EPS = 0.2;
 
 export class SeededRNG {
   constructor(seed = 123456789) {
@@ -83,6 +83,8 @@ export class PhysicsWorld {
         wx: 0,
         wy: 0,
         wz: 0,
+        topSpin: 0,
+        slidingTime: 0,
         active: true,
         inChute: false,
         chuteProgress: 0,
@@ -93,11 +95,11 @@ export class PhysicsWorld {
     }
 
     this.params = {
-      slideFriction: 0.21,
-      rollFriction: 0.015,
-      spinDecay: 2.6,
+      slideFriction: 0.20,
+      rollFriction: 0.016,
+      spinDecay: 2.8,
       restitutionBall: 0.95,
-      restitutionRail: 0.76,
+      restitutionRail: 0.78,
       pocketRadiusScale: 1.0
     };
 
@@ -206,6 +208,8 @@ export class PhysicsWorld {
       const b = this.balls[i];
       b.vx = 0; b.vy = 0;
       b.wx = 0; b.wy = 0; b.wz = 0;
+      b.topSpin = 0;
+      b.slidingTime = 0;
       b.inChute = false;
       b.chuteProgress = 0;
       b.pocketId = -1;
@@ -223,8 +227,8 @@ export class PhysicsWorld {
 
     const apexX = TABLE_W * 0.73;
     const apexY = TABLE_H * 0.5;
-    const rowDx = Math.sqrt(3) * (BALL_R + 0.25);
-    const colDy = (BALL_R + 0.25) * 2;
+    const rowDx = Math.sqrt(3) * (BALL_R + 0.15);
+    const colDy = (BALL_R + 0.15) * 2;
 
     if (mode === '9ball') {
       for (let i = 1; i < 16; i++) this.balls[i].active = i <= 9;
@@ -239,8 +243,8 @@ export class PhysicsWorld {
       for (let idx = 0; idx < 9; idx++) {
         const b = this.balls[order[idx]];
         const [r, c] = diamondCoords[idx];
-        b.x = apexX + r * rowDx + this.rng.range(-0.12, 0.12);
-        b.y = apexY + c * colDy + this.rng.range(-0.12, 0.12);
+        b.x = apexX + r * rowDx + this.rng.range(-0.08, 0.08);
+        b.y = apexY + c * colDy + this.rng.range(-0.08, 0.08);
         b.prevX = b.x;
         b.prevY = b.y;
       }
@@ -261,8 +265,8 @@ export class PhysicsWorld {
         const id = rackIds[k++];
         const b = this.balls[id];
         const offsetY = (col - row * 0.5) * colDy;
-        b.x = apexX + row * rowDx + this.rng.range(-0.15, 0.15);
-        b.y = apexY + offsetY + this.rng.range(-0.15, 0.15);
+        b.x = apexX + row * rowDx + this.rng.range(-0.08, 0.08);
+        b.y = apexY + offsetY + this.rng.range(-0.08, 0.08);
         b.prevX = b.x;
         b.prevY = b.y;
       }
@@ -279,19 +283,19 @@ export class PhysicsWorld {
 
     cue.vx = dirX * speed;
     cue.vy = dirY * speed;
+    cue.slidingTime = 0.22;
 
-    const maxSpin = (speed / BALL_R) * 1.65;
-    const fwdSpin = spinY * maxSpin;
-    cue.wx = -dirY * fwdSpin;
-    cue.wy = dirX * fwdSpin;
-    cue.wz = spinX * maxSpin * 1.15;
+    cue.topSpin = spinY * speed * 0.85;
+    cue.wz = spinX * (speed / BALL_R) * 1.1;
+    cue.wx = -cue.vy / BALL_R;
+    cue.wy = cue.vx / BALL_R;
   }
 
   areBallsMoving() {
     for (let i = 0; i < 16; i++) {
       const b = this.balls[i];
       if (!b.active) continue;
-      if (Math.hypot(b.vx, b.vy) > 0 || Math.hypot(b.wx, b.wy, b.wz) > 0) {
+      if (Math.hypot(b.vx, b.vy) > STOP_EPS * 0.5 || Math.abs(b.wz) > SPIN_EPS) {
         return true;
       }
     }
@@ -352,47 +356,37 @@ export class PhysicsWorld {
       const b = this.balls[i];
       if (!b.active) continue;
 
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
+      const speed = Math.hypot(b.vx, b.vy);
+      if (speed > STOP_EPS) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
 
-      rotateMat3(b.rot, b.wx, b.wy, b.wz, dt);
-
-      const slipX = b.vx - BALL_R * b.wy;
-      const slipY = b.vy + BALL_R * b.wx;
-      const slipSpeed = Math.hypot(slipX, slipY);
-
-      if (slipSpeed > 12) {
-        const dv = muS * GRAVITY * dt;
-        const factor = Math.min(1, dv / slipSpeed);
-        const ax = -(slipX / slipSpeed) * muS * GRAVITY;
-        const ay = -(slipY / slipSpeed) * muS * GRAVITY;
-
-        if (factor >= 0.4) {
-          b.vx -= (2 / 7) * slipX;
-          b.vy -= (2 / 7) * slipY;
-          b.wx = -b.vy / BALL_R;
-          b.wy = b.vx / BALL_R;
-        } else {
-          b.vx += ax * dt;
-          b.vy += ay * dt;
-          b.wx -= (5 * ay / (2 * BALL_R)) * dt;
-          b.wy += (5 * ax / (2 * BALL_R)) * dt;
+        const activeFriction = b.slidingTime > 0 ? muS * 0.45 : muR;
+        if (b.slidingTime > 0) {
+          b.slidingTime = Math.max(0, b.slidingTime - dt);
         }
+
+        const decel = activeFriction * GRAVITY * dt;
+        const newSpeed = Math.max(0, speed - decel);
+        const ratio = newSpeed / speed;
+        b.vx *= ratio;
+        b.vy *= ratio;
+
+        b.wx = -b.vy / BALL_R;
+        b.wy = b.vx / BALL_R;
+        rotateMat3(b.rot, b.wx, b.wy, b.wz, dt);
       } else {
-        const speed = Math.hypot(b.vx, b.vy);
-        if (speed > STOP_EPS) {
-          const drop = Math.max(0, speed - muR * GRAVITY * dt);
-          const scale = drop / speed;
-          b.vx *= scale;
-          b.vy *= scale;
-          b.wx = -b.vy / BALL_R;
-          b.wy = b.vx / BALL_R;
-        } else {
-          b.vx = 0;
-          b.vy = 0;
-          b.wx = 0;
-          b.wy = 0;
-        }
+        b.vx = 0;
+        b.vy = 0;
+        b.wx = 0;
+        b.wy = 0;
+        b.slidingTime = 0;
+      }
+
+      if (Math.abs(b.topSpin) > 1) {
+        b.topSpin *= Math.max(0, 1 - 1.2 * dt);
+      } else {
+        b.topSpin = 0;
       }
 
       if (Math.abs(b.wz) > SPIN_EPS) {
@@ -409,7 +403,7 @@ export class PhysicsWorld {
     const minDist = BALL_R * 2;
     const minDistSq = minDist * minDist;
     const e = this.params.restitutionBall;
-    const throwMu = 0.045;
+    const throwMu = 0.03;
 
     for (let i = 0; i < 16; i++) {
       const a = this.balls[i];
@@ -447,16 +441,25 @@ export class PhysicsWorld {
 
             const tx = -ny;
             const ty = nx;
-            const relTan = rvx * tx + rvy * ty + BALL_R * (a.wz + b.wz);
-            const jTan = Math.max(-throwMu * jNorm, Math.min(throwMu * jNorm, -0.2 * relTan));
+            const relTan = rvx * tx + rvy * ty + BALL_R * (a.wz + b.wz) * 0.4;
+            const jTan = Math.max(-throwMu * jNorm, Math.min(throwMu * jNorm, -0.12 * relTan));
 
             a.vx += jTan * tx;
             a.vy += jTan * ty;
             b.vx -= jTan * tx;
             b.vy -= jTan * ty;
 
-            a.wz += (jTan / BALL_R) * 0.35;
-            b.wz += (jTan / BALL_R) * 0.35;
+            if (a.id === 0 && Math.abs(a.topSpin) > 1) {
+              const spinTransfer = a.topSpin * 0.58;
+              a.vx += nx * spinTransfer;
+              a.vy += ny * spinTransfer;
+              a.topSpin *= 0.2;
+            }
+
+            a.slidingTime = 0.12;
+            b.slidingTime = 0.12;
+            a.wz *= 0.6;
+            b.wz *= 0.6;
 
             this.collisionCount++;
             this.pushEvent('ball', a.id, b.id, velAlongNormal);
@@ -510,12 +513,13 @@ export class PhysicsWorld {
             const vt = b.vx * tx + b.vy * ty;
 
             const newVn = -vn * eRail;
-            const spinEffect = b.wz * BALL_R * 0.22;
-            const newVt = vt * 0.88 + spinEffect;
+            const spinEffect = b.wz * BALL_R * 0.18;
+            const newVt = vt * 0.9 + spinEffect;
 
             b.vx = nx * newVn + tx * newVt;
             b.vy = ny * newVn + ty * newVt;
-            b.wz *= 0.65;
+            b.wz *= 0.55;
+            b.topSpin *= 0.35;
             b.wx = -b.vy / BALL_R;
             b.wy = b.vx / BALL_R;
 
@@ -539,6 +543,7 @@ export class PhysicsWorld {
           b.active = false;
           b.vx = 0; b.vy = 0;
           b.wx = 0; b.wy = 0; b.wz = 0;
+          b.topSpin = 0;
           b.pocketId = pk.id;
           if (b.id !== 0) {
             this.enqueueBallIntoChute(b);
@@ -656,8 +661,8 @@ export class PhysicsWorld {
         tx /= tLen;
         ty /= tLen;
       }
-      res.cueDeflectX = tx + nx * spinY * 0.45 - ny * spinX * 0.15;
-      res.cueDeflectY = ty + ny * spinY * 0.45 + nx * spinX * 0.15;
+      res.cueDeflectX = tx + nx * spinY * 0.55 - ny * spinX * 0.15;
+      res.cueDeflectY = ty + ny * spinY * 0.55 + nx * spinX * 0.15;
     } else {
       res.hitX = cue.x + dirX * railT;
       res.hitY = cue.y + dirY * railT;
@@ -700,6 +705,8 @@ export class PhysicsWorld {
       b.prevY = s.y;
       b.vx = 0; b.vy = 0;
       b.wx = 0; b.wy = 0; b.wz = 0;
+      b.topSpin = 0;
+      b.slidingTime = 0;
       b.active = s.active;
       b.inChute = s.inChute;
       b.chuteTargetY = s.chuteTargetY;

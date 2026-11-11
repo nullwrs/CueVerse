@@ -10,6 +10,7 @@ export class NetManager {
     this.roomCode = '';
     this.connected = false;
     this.rtt = 0;
+    this.lastAimSentAt = 0;
 
     this.pingTimer = null;
     this.reconnectTimer = null;
@@ -139,6 +140,15 @@ export class NetManager {
           this.callbacks.onMatchStart(msg);
         }
         break;
+      case 'AIM_SYNC':
+        if (this.callbacks.onRemoteAim && msg.aim) {
+          const cleanAim = this.validateShotPayload(msg.aim);
+          if (cleanAim) {
+            cleanAim.power = Math.max(0, Math.min(1, Number(msg.aim.power) || 0));
+            this.callbacks.onRemoteAim(cleanAim);
+          }
+        }
+        break;
       case 'REQ_SHOT':
         if (this.isHost) {
           this.callbacks.onClientShotRequest(msg.shot);
@@ -159,6 +169,14 @@ export class NetManager {
         this.callbacks.onRematchRequest();
         break;
     }
+  }
+
+  sendAimSync(aimData) {
+    if (!this.connected) return;
+    const now = performance.now();
+    if (now - this.lastAimSentAt < 40 && aimData.power > 0) return;
+    this.lastAimSentAt = now;
+    this.send({ type: 'AIM_SYNC', aim: aimData });
   }
 
   validateShotPayload(shot) {

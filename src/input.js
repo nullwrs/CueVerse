@@ -13,6 +13,7 @@ export class InputController {
     this.spinX = 0;
     this.spinY = 0;
     this.canShoot = false;
+    this.showAim = true;
 
     this.draggingTable = false;
     this.draggingCueBall = false;
@@ -29,8 +30,36 @@ export class InputController {
     this.power = 0;
     this.spinX = 0;
     this.spinY = 0;
+    this.draggingTable = false;
+    this.draggingCueBall = false;
     this.updateSpinUI();
     this.updatePowerUI();
+  }
+
+  resetAllDefaults() {
+    this.aimAngle = 0;
+    this.power = 0;
+    this.spinX = 0;
+    this.spinY = 0;
+    this.draggingTable = false;
+    this.draggingCueBall = false;
+    this.fineAimActive = false;
+    this.updateSpinUI();
+    this.updatePowerUI();
+  }
+
+  emitAimChange() {
+    if (this.canShoot && this.callbacks.onAimChanged) {
+      this.callbacks.onAimChanged({
+        angle: this.aimAngle,
+        power: this.power,
+        spinX: this.spinX,
+        spinY: this.spinY,
+        cueX: this.world.balls[0].x,
+        cueY: this.world.balls[0].y,
+        calledPocket: this.rules.calledPocket
+      });
+    }
   }
 
   bindCanvasEvents() {
@@ -45,6 +74,7 @@ export class InputController {
           if (Math.hypot(pt.x - pk.x, pt.y - pk.y) < pk.r + 16) {
             this.rules.calledPocket = pk.id;
             if (this.callbacks.onPocketCalled) this.callbacks.onPocketCalled(pk.id);
+            this.emitAimChange();
             return;
           }
         }
@@ -57,7 +87,6 @@ export class InputController {
 
       this.draggingTable = true;
       this.lastPointerAngle = Math.atan2(pt.y - cue.y, pt.x - cue.x);
-      this.aimAngle = this.lastPointerAngle;
     });
 
     this.canvas.addEventListener('pointermove', e => {
@@ -72,6 +101,7 @@ export class InputController {
           cue.y = pt.y;
           cue.prevX = pt.x;
           cue.prevY = pt.y;
+          this.emitAimChange();
         }
         return;
       }
@@ -81,9 +111,10 @@ export class InputController {
         let delta = curAngle - this.lastPointerAngle;
         while (delta > Math.PI) delta -= Math.PI * 2;
         while (delta < -Math.PI) delta += Math.PI * 2;
-        const sensitivity = e.shiftKey || this.fineAimActive ? 0.22 : 1.0;
+        const sensitivity = e.shiftKey || this.fineAimActive ? 0.07 : 0.32;
         this.aimAngle += delta * sensitivity;
         this.lastPointerAngle = curAngle;
+        this.emitAimChange();
       }
     });
 
@@ -105,6 +136,7 @@ export class InputController {
       const relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
       this.power = relY;
       this.updatePowerUI();
+      this.emitAimChange();
     };
 
     track.addEventListener('pointerdown', e => {
@@ -138,6 +170,7 @@ export class InputController {
       } else {
         this.power = 0;
         this.updatePowerUI();
+        this.emitAimChange();
       }
     };
 
@@ -162,7 +195,8 @@ export class InputController {
       if (!draggingWheel) return;
       const dy = e.clientY - lastY;
       lastY = e.clientY;
-      this.aimAngle += dy * 0.0018;
+      this.aimAngle += dy * 0.0006;
+      this.emitAimChange();
     });
 
     const stopWheel = () => { draggingWheel = false; };
@@ -176,6 +210,7 @@ export class InputController {
     let draggingSpin = false;
 
     const setSpinFromPointer = e => {
+      if (!this.canShoot) return;
       const rect = pad.getBoundingClientRect();
       const cx = rect.left + rect.width * 0.5;
       const cy = rect.top + rect.height * 0.5;
@@ -190,9 +225,11 @@ export class InputController {
       this.spinX = sx;
       this.spinY = sy;
       this.updateSpinUI();
+      this.emitAimChange();
     };
 
     pad.addEventListener('pointerdown', e => {
+      if (!this.canShoot) return;
       draggingSpin = true;
       pad.setPointerCapture(e.pointerId);
       setSpinFromPointer(e);
